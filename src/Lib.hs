@@ -43,3 +43,10 @@ type family Insert (x :: (Symbol, k)) (xs :: [(Symbol, k)]) where
 type family Insert' (b :: Ordering) (x :: (Symbol, k)) (y :: (Symbol, k)) (ys :: [(Symbol, k)]) where
   Insert' 'LT x y ys = x ': (y ': ys)
   Insert' _ x y ys = y ': Insert x ys
+
+type family FieldDiff (a :: [(Symbol, Type)]) (b :: [(Symbol, Type)]) :: [(Symbol, Either Type (Type, Type))] where
+  FieldDiff ('(x, t) ': xs) ('(x, t) ': ys) = FieldDiff xs ys
+  FieldDiff ('(x, u) ': xs) ('(x, v) ': ys) = '(x, 'Right '(u, v)) ': FieldDiff xs ys
+  FieldDiff ('(x, u) ': xs) ('(y, v) ': ys) = FieldDiffImpl (CmpSymbol x y) '(x, u) '(y, v) xs ys
+
+type family FieldDiffImpl (b :: Ordering) (x :: (Symbol, k)) (y :: (Symbol, k)) (xs :: [(Symbol, k)]) (ys :: [(Symbol, k)])
