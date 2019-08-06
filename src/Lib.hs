@@ -124,21 +124,44 @@ instance GUndefinedFields (K1 _1 t) where
 undefinedFields :: (Generic t, GUndefinedFields (Rep t)) => t
 undefinedFields = to gUndefinedFields
 
-class JonkySmalls (from :: Type) (to :: Type) (ts :: [(Symbol, Either Type (Type, Type))]) where
-  type Function from to ts :: Type
-  jonky :: Function from to ts
+class JonkySmalls (ts :: [DiffResult]) (src :: Type) (dst :: Type)  where
+  type Function ts src dst :: Type
+  jonky :: dst -> src -> Function ts src dst
 
-instance JonkySmalls from to '[] where
-  type Function from to '[] = from -> to
-  jonky = undefined
+instance (Generic dst, GUndefinedFields (Rep dst)) => JonkySmalls '[] src dst where
+  type Function '[] src dst = dst
+  jonky dst _ = dst
 
--- instance JonkySmalls from to ts => JonkySmalls from to ('(name, 'Left t) ': ts) where
---   type Function from to ('(name, 'Left t) ': ts) = (from -> t) -> Function from to ts
---   jonky = undefined
+instance ( JonkySmalls ts src dst
+         , HasField' name src t
+         , HasField' name dst t
+         ) => JonkySmalls ('NoChange name t ': ts) src dst where
+  type Function ('NoChange name t ': ts) src dst  = Function ts src dst
+  jonky dst src = jonky @ts (copyField @name src dst) src
 
--- instance JonkySmalls from to ts => JonkySmalls from to ('(name, 'Right '(old, new)) ': ts) where
---   type Function from to ('(name, 'Right '(old, new)) ': ts) = (from -> old -> new) -> Function from to ts
---   jonky = undefined
+instance ( JonkySmalls ts src dst
+         , HasField' name dst t
+         ) => JonkySmalls ('Addition name t ': ts) src dst where
+  type Function ('Addition name t ': ts) src dst  = (src -> t) -> Function ts src dst
+  jonky dst src mk_t = jonky @ts (dst & field' @name .~ mk_t src) src
+
+instance ( JonkySmalls ts src dst
+         , HasField' name src ti
+         , HasField' name dst to
+         ) => JonkySmalls ('Change name ti to ': ts) src dst where
+  type Function ('Change name ti to ': ts) src dst  = (src -> ti -> to) -> Function ts src dst
+  jonky dst src mk_to = jonky @ts (dst & field' @name .~ mk_to src (src ^. field' @name)) src
+
+
+doTheJonk
+    :: forall src dst diff
+     . ( diff ~ FieldDiff (Sort (RepToTree (Rep src))) (Sort (RepToTree (Rep dst)))
+       , JonkySmalls diff src dst
+       , Generic dst
+       , GUndefinedFields (Rep dst)
+       )
+    => src -> Function diff src dst
+doTheJonk = jonky @diff @src @dst undefinedFields
 
 
 
