@@ -35,7 +35,7 @@ data instance Foo 1
 v1 = FooV1 2 "james" "sir"
 v0 = FooV0 undefined undefined
 
-v0' = copyField @"_fooName" @String v1 v0
+v0' = copyField @"_fooName" v1 $ copyField @"_fooId" v1 v0
 
 class Transform (f :: Nat -> Type) (v :: Nat) where
   up   :: f v       -> f (v + 1)
