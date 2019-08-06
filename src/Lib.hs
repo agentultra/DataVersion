@@ -50,6 +50,11 @@ type family (++) (xs :: [k]) (ys :: [k]) :: [k] where
   (++) '[] ys = ys
   (++) (x ': xs) ys = x ': (xs ++ ys)
 
+data DiffResult
+  = NoChange Symbol Type
+  | Addition Symbol Type
+  | Change Symbol Type Type
+
 type family Sort (xs :: [(Symbol, k)]) where
   Sort '[] = '[]
   Sort (x ': xs) = Insert x (Sort xs)
@@ -63,21 +68,21 @@ type family Insert' (b :: Ordering) (x :: (Symbol, k)) (y :: (Symbol, k)) (ys ::
   Insert' _ x y ys = y ': Insert x ys
 
 type family FieldDiff (a :: [(Symbol, Type)])
-                      (b :: [(Symbol, Type)]) :: [Either (Symbol, Type) (Symbol, Either Type (Type, Type))] where
+                      (b :: [(Symbol, Type)]) :: [DiffResult] where
   FieldDiff xs '[] = '[]
-  FieldDiff '[] ('(y, v) ': ys) = 'Left '(y, v) ': FieldDiff '[] ys
+  FieldDiff '[] ('(y, v) ': ys) = 'Addition y v ': FieldDiff '[] ys
 
-  FieldDiff ('(x, t) ': xs) ('(x, t) ': ys) = 'Left '(x, t) ': FieldDiff xs ys
-  FieldDiff ('(x, u) ': xs) ('(x, v) ': ys) = 'Right '(x, 'Right '(u, v)) ': FieldDiff xs ys
+  FieldDiff ('(x, t) ': xs) ('(x, t) ': ys) = 'NoChange x t ': FieldDiff xs ys
+  FieldDiff ('(x, u) ': xs) ('(x, v) ': ys) = 'Change x u v ': FieldDiff xs ys
   FieldDiff ('(x, u) ': xs) ('(y, v) ': ys) = FieldDiffImpl (CmpSymbol x y) '(x, u) '(y, v) xs ys
 
 type family FieldDiffImpl (b :: Ordering)
                           (x :: (Symbol, Type))
                           (y :: (Symbol, Type))
                           (xs :: [(Symbol, Type)])
-                          (ys :: [(Symbol, Type)]) :: [Either (Symbol, Type) (Symbol, Either Type (Type, Type))] where
+                          (ys :: [(Symbol, Type)]) :: [DiffResult] where
   FieldDiffImpl 'LT _ y xs ys = FieldDiff xs (y ': ys)
-  FieldDiffImpl 'GT x '(y, v) xs ys = 'Right '(y, 'Left v) ': FieldDiff (x ': xs) ys
+  FieldDiffImpl 'GT x '(y, v) xs ys = 'Addition y v ': FieldDiff (x ': xs) ys
 
 copyField
     :: forall name t from to
