@@ -1,10 +1,12 @@
-{-# LANGUAGE AllowAmbiguousTypes       #-}
-{-# LANGUAGE DuplicateRecordFields     #-}
-{-# LANGUAGE ScopedTypeVariables       #-}
-{-# LANGUAGE TypeApplications          #-}
-{-# LANGUAGE TypeOperators             #-}
-{-# LANGUAGE UndecidableInstances      #-}
-{-# OPTIONS_GHC -fprint-explicit-kinds #-}
+{-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE DuplicateRecordFields      #-}
+{-# LANGUAGE FunctionalDependencies     #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE UndecidableInstances       #-}
+{-# OPTIONS_GHC -fprint-explicit-kinds  #-}
 
 module Lib where
 
@@ -14,8 +16,25 @@ import Data.Kind
 import GHC.Generics
 import GHC.TypeLits
 import Data.Proxy
+import GHC.Exts
+
+-- nice to haves:
+--   DOCUMENTATION
+--   tests
+--   names of fields for jonking
+--
+--   automagic upgrading between non-sequential versions
+--
+--   friendly error messages
+--   sum types
+--   reorder the `Function` so its an "endo"
+--   special cases for Maybe? lists?
+--   COMPOSITION of ups and downs
 
 data family Foo (a :: Nat)
+
+newtype MyString = MyString { unMyString :: String }
+  deriving (IsString, Show, Eq)
 
 data instance Foo 0
   = FooV0
@@ -27,19 +46,18 @@ data instance Foo 0
 data instance Foo 1
   = FooV1
   { _fooId        :: Int
-  , _fooName      :: String
+  , _fooName      :: MyString
   , _fooHonorific :: String
   }
   deriving (Generic, Show, Eq)
 
-v1 = FooV1 2 "james" "sir"
-v0 = FooV0 undefined undefined
+class Transform (f :: Nat -> Type) (n :: Nat) where
+  up   :: f n       -> f (n + 1)
+  down :: f (n + 1) -> f n
 
-v0' = copyField @"_fooName" v1 $ copyField @"_fooId" v1 v0
-
-class Transform (f :: Nat -> Type) (v :: Nat) where
-  up   :: f v       -> f (v + 1)
-  down :: f (v + 1) -> f v
+instance Transform Foo 0 where
+  up   v = genericUp   v (const "esquire") (const MyString)
+  down v = genericDown v (const unMyString)
 
 type family RepToTree (a :: Type -> Type) :: [(Symbol, Type)] where
   RepToTree (f :*: g) = RepToTree f ++ RepToTree g
@@ -96,19 +114,6 @@ copyField f t =
   t & field' @name .~ f ^. field' @name
 
 
-class CopyAllFields (ts :: [(Symbol, Type)]) (from :: Type) (to :: Type) where
-  copyAllFields :: from -> to -> to
-
-instance CopyAllFields '[] from to where
-  copyAllFields _ = id
-
-instance ( CopyAllFields ts from to
-         , HasField' name to   t
-         , HasField' name from t
-         ) => CopyAllFields ('(name, t) ': ts) from to where
-  copyAllFields f t = copyField @name @t f $ copyAllFields @ts f t
-
-
 class GUndefinedFields (o :: * -> *) where
   gUndefinedFields :: o x
 
@@ -124,21 +129,55 @@ instance GUndefinedFields (K1 _1 t) where
 undefinedFields :: (Generic t, GUndefinedFields (Rep t)) => t
 undefinedFields = to gUndefinedFields
 
-class JonkySmalls (from :: Type) (to :: Type) (ts :: [(Symbol, Either Type (Type, Type))]) where
-  type Function from to ts :: Type
-  jonky :: Function from to ts
+class GTransform (ts :: [DiffResult]) (src :: Type) (dst :: Type)  where
+  type Function ts src dst :: Type
+  gTransform :: dst -> src -> Function ts src dst
 
-instance JonkySmalls from to '[] where
-  type Function from to '[] = from -> to
-  jonky = undefined
+instance (Generic dst, GUndefinedFields (Rep dst)) => GTransform '[] src dst where
+  type Function '[] src dst = dst
+  gTransform dst _ = dst
 
--- instance JonkySmalls from to ts => JonkySmalls from to ('(name, 'Left t) ': ts) where
---   type Function from to ('(name, 'Left t) ': ts) = (from -> t) -> Function from to ts
---   jonky = undefined
+instance ( GTransform ts src dst
+         , HasField' name src t
+         , HasField' name dst t
+         ) => GTransform ('NoChange name t ': ts) src dst where
+  type Function ('NoChange name t ': ts) src dst  = Function ts src dst
+  gTransform dst src = gTransform @ts (copyField @name src dst) src
 
--- instance JonkySmalls from to ts => JonkySmalls from to ('(name, 'Right '(old, new)) ': ts) where
---   type Function from to ('(name, 'Right '(old, new)) ': ts) = (from -> old -> new) -> Function from to ts
---   jonky = undefined
+instance ( GTransform ts src dst
+         , HasField' name dst t
+         ) => GTransform ('Addition name t ': ts) src dst where
+  type Function ('Addition name t ': ts) src dst  = (src -> t) -> Function ts src dst
+  gTransform dst src mk_t = gTransform @ts (dst & field' @name .~ mk_t src) src
+
+instance ( GTransform ts src dst
+         , HasField' name src ti
+         , HasField' name dst to
+         ) => GTransform ('Change name ti to ': ts) src dst where
+  type Function ('Change name ti to ': ts) src dst  = (src -> ti -> to) -> Function ts src dst
+  gTransform dst src mk_to = gTransform @ts (dst & field' @name .~ mk_to src (src ^. field' @name)) src
+
+genericUp
+    :: forall n src diff
+     . ( diff ~ FieldDiff (Sort (RepToTree (Rep (src n)))) (Sort (RepToTree (Rep (src (n + 1)))))
+       , GTransform diff (src n) (src (n + 1))
+       , Generic (src (n + 1))
+       , GUndefinedFields (Rep (src (n + 1)))
+       )
+    => src n -> Function diff (src n) (src (n + 1))
+genericUp = gTransform @diff @_ @(src (n + 1)) undefinedFields
+
+genericDown
+    :: forall n src diff
+     . ( diff ~ FieldDiff (Sort (RepToTree (Rep (src (n + 1))))) (Sort (RepToTree (Rep (src n))))
+       , GTransform diff (src (n + 1)) (src n)
+       , Generic (src n)
+       , GUndefinedFields (Rep (src n))
+       )
+    => src (n + 1) -> Function diff (src (n + 1)) (src n)
+genericDown = gTransform @diff @_ @(src n) undefinedFields
+
+
 
 
 
