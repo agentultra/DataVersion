@@ -27,6 +27,7 @@ library:
   dependencies:
     - microlens
     - generic-lens
+    - superrecord
 
 default-extensions:
   - DataKinds
