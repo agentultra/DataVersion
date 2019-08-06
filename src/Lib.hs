@@ -17,6 +17,21 @@ import GHC.TypeLits
 import Data.Proxy
 import GHC.Exts
 
+-- nice to haves:
+--   better names for everything
+--   type inference for do the jonk
+--   DOCUMENTATION
+--   friendly error messages
+--
+--   names of fields for jonking
+--
+--   automagic upgrading between non-sequential versions
+--
+--   sum types
+--   reorder the `Function` so its an "endo"
+--   special cases for Maybe? lists?
+--   COMPOSITION of ups and downs
+
 data family Foo (a :: Nat)
 
 newtype MyString = MyString { unMyString :: String }
@@ -45,8 +60,8 @@ class Transform (f :: Nat -> Type) (n :: Nat) where
   down :: f (n + 1) -> f n
 
 instance Transform Foo 0 where
-  up v = doTheJonk @(Foo 0) @(Foo 1) v (const "esquire") (const MyString)
-  down v = doTheJonk @(Foo 1) @(Foo 0) v (const unMyString)
+  up v = doTheJonk2 v (const "esquire") (const MyString)
+  down v = doTheJonk3 v (const unMyString)
 
 type family RepToTree (a :: Type -> Type) :: [(Symbol, Type)] where
   RepToTree (f :*: g) = RepToTree f ++ RepToTree g
@@ -156,6 +171,26 @@ doTheJonk
        )
     => src -> Function diff src dst
 doTheJonk = jonky @diff @src @dst undefinedFields
+
+doTheJonk2
+    :: forall n src diff
+     . ( diff ~ FieldDiff (Sort (RepToTree (Rep (src n)))) (Sort (RepToTree (Rep (src (n + 1)))))
+       , JonkySmalls diff (src n) (src (n + 1))
+       , Generic (src (n + 1))
+       , GUndefinedFields (Rep (src (n + 1)))
+       )
+    => src n -> Function diff (src n) (src (n + 1))
+doTheJonk2 = jonky @diff @(src n) @(src (n + 1)) undefinedFields
+
+doTheJonk3
+    :: forall n src diff
+     . ( diff ~ FieldDiff (Sort (RepToTree (Rep (src (n + 1))))) (Sort (RepToTree (Rep (src n))))
+       , JonkySmalls diff (src (n + 1)) (src n)
+       , Generic (src n)
+       , GUndefinedFields (Rep (src n))
+       )
+    => src (n + 1) -> Function diff (src (n + 1)) (src n)
+doTheJonk3 = jonky @diff @(src (n + 1)) @(src n) undefinedFields
 
 
 
