@@ -1,10 +1,11 @@
-{-# LANGUAGE AllowAmbiguousTypes       #-}
-{-# LANGUAGE DuplicateRecordFields     #-}
-{-# LANGUAGE ScopedTypeVariables       #-}
-{-# LANGUAGE TypeApplications          #-}
-{-# LANGUAGE TypeOperators             #-}
-{-# LANGUAGE UndecidableInstances      #-}
-{-# OPTIONS_GHC -fprint-explicit-kinds #-}
+{-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE DuplicateRecordFields      #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE UndecidableInstances       #-}
+{-# OPTIONS_GHC -fprint-explicit-kinds  #-}
 
 module Lib where
 
@@ -14,8 +15,12 @@ import Data.Kind
 import GHC.Generics
 import GHC.TypeLits
 import Data.Proxy
+import GHC.Exts
 
 data family Foo (a :: Nat)
+
+newtype MyString = MyString { unMyString :: String }
+  deriving (IsString, Show, Eq)
 
 data instance Foo 0
   = FooV0
@@ -27,19 +32,21 @@ data instance Foo 0
 data instance Foo 1
   = FooV1
   { _fooId        :: Int
-  , _fooName      :: String
+  , _fooName      :: MyString
   , _fooHonorific :: String
   }
   deriving (Generic, Show, Eq)
 
-v1 = FooV1 2 "james" "sir"
-v0 = FooV0 undefined undefined
+v1 = FooV1 2 (MyString "james") "sir"
+v0 = FooV0 3 "sandy"
 
-v0' = copyField @"_fooName" v1 $ copyField @"_fooId" v1 v0
+class Transform (f :: Nat -> Type) (n :: Nat) where
+  up   :: f n       -> f (n + 1)
+  down :: f (n + 1) -> f n
 
-class Transform (f :: Nat -> Type) (v :: Nat) where
-  up   :: f v       -> f (v + 1)
-  down :: f (v + 1) -> f v
+instance Transform Foo 0 where
+  up v = doTheJonk @(Foo 0) @(Foo 1) v (const "esquire") (const MyString)
+  down v = doTheJonk @(Foo 1) @(Foo 0) v (const unMyString)
 
 type family RepToTree (a :: Type -> Type) :: [(Symbol, Type)] where
   RepToTree (f :*: g) = RepToTree f ++ RepToTree g
@@ -94,19 +101,6 @@ copyField
     -> to
 copyField f t =
   t & field' @name .~ f ^. field' @name
-
-
-class CopyAllFields (ts :: [(Symbol, Type)]) (from :: Type) (to :: Type) where
-  copyAllFields :: from -> to -> to
-
-instance CopyAllFields '[] from to where
-  copyAllFields _ = id
-
-instance ( CopyAllFields ts from to
-         , HasField' name to   t
-         , HasField' name from t
-         ) => CopyAllFields ('(name, t) ': ts) from to where
-  copyAllFields f t = copyField @name @t f $ copyAllFields @ts f t
 
 
 class GUndefinedFields (o :: * -> *) where
