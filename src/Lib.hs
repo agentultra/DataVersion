@@ -144,5 +144,5 @@ instance JonkySmalls from to '[] where
 
 test
     :: Proxy (FieldDiff (Sort '[ '("id", Int) , '("name", String) ]) (Sort '[ '("id", Int) , '("name", String) , '("honorific", String)]))
-   ->  Proxy '[ 'Right '("honorific", ('Left String :: Either Type (Type, Type))), 'Left '("id", Int), 'Left '("name", String) ]
+   ->  Proxy '[ 'Addition "honorific" String, 'NoChange "id" Int, 'NoChange "name" String ]
 test = id
