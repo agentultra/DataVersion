@@ -17,14 +17,14 @@ import Data.Proxy
 
 data family Foo (a :: Nat)
 
-data Foo0
+data instance Foo 0
   = FooV0
     { _fooId :: Int
     , _fooName :: String
     }
   deriving (Generic, Show, Eq)
 
-data Foo1
+data instance Foo 1
   = FooV1
   { _fooId        :: Int
   , _fooName      :: String
@@ -34,6 +34,8 @@ data Foo1
 
 v1 = FooV1 2 "james" "sir"
 v0 = FooV0 undefined undefined
+
+v0' = copyField @"_fooName" @String v1 v0
 
 class Transform (f :: Nat -> Type) (v :: Nat) where
   up   :: f v       -> f (v + 1)
@@ -79,14 +81,14 @@ type family FieldDiffImpl (b :: Ordering)
 
 copyField
     :: forall name t from to
-     . ( HasField name to   to   t t
-       , HasField name from from t t
+     . ( HasField' name to   t
+       , HasField' name from t
        )
     => from
     -> to
     -> to
 copyField f t =
-  t & field @name @to @to @t @t .~ f ^. field @name @from @from @t @t
+  t & field' @name .~ f ^. field' @name
 
 
 class CopyAllFields (ts :: [(Symbol, Type)]) (from :: Type) (to :: Type) where
@@ -96,8 +98,8 @@ instance CopyAllFields '[] from to where
   copyAllFields _ = id
 
 instance ( CopyAllFields ts from to
-         , HasField name to   to   t t
-         , HasField name from from t t
+         , HasField' name to   t
+         , HasField' name from t
          ) => CopyAllFields ('(name, t) ': ts) from to where
   copyAllFields f t = copyField @name @t f $ copyAllFields @ts f t
 
