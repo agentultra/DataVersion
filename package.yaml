@@ -24,6 +24,9 @@ dependencies:
 
 library:
   source-dirs: src
+  dependencies:
+    - microlens
+    - generic-lens
 
 default-extensions:
   - DataKinds
