@@ -102,8 +102,6 @@ instance ( CopyAllFields ts from to
   copyAllFields f t = copyField @name @t f $ copyAllFields @ts f t
 
 
--- copyField :: from -> to ->  to
-
 class GUndefinedFields (o :: * -> *) where
   gUndefinedFields :: o x
 
