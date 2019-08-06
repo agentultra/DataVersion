@@ -1,4 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE DuplicateRecordFields      #-}
 {-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -10,6 +13,7 @@
 
 module Lib where
 
+import Data.Functor.Identity
 import Data.Generics.Product
 import Lens.Micro hiding (to)
 import Data.Kind
@@ -20,18 +24,23 @@ import GHC.Exts
 
 -- nice to haves:
 --   DOCUMENTATION
---   friendly error messages
---
+--   tests
 --   names of fields for jonking
 --
 --   automagic upgrading between non-sequential versions
 --
+--   friendly error messages
 --   sum types
 --   reorder the `Function` so its an "endo"
 --   special cases for Maybe? lists?
 --   COMPOSITION of ups and downs
 
 data family Foo (a :: Nat)
+
+newtype Field (name :: Symbol) (t :: Type) = Field
+  { unField :: t
+  } deriving stock (Eq, Ord, Show, Functor)
+    deriving (Applicative, Monad) via (Identity)
 
 newtype MyString = MyString { unMyString :: String }
   deriving (IsString, Show, Eq)
@@ -51,16 +60,13 @@ data instance Foo 1
   }
   deriving (Generic, Show, Eq)
 
-v1 = FooV1 2 (MyString "james") "sir"
-v0 = FooV0 3 "sandy"
-
 class Transform (f :: Nat -> Type) (n :: Nat) where
   up   :: f n       -> f (n + 1)
   down :: f (n + 1) -> f n
 
 instance Transform Foo 0 where
-  up   v = genericUp   v (const "esquire") (const MyString)
-  down v = genericDown v (const unMyString)
+  up   v = genericUp   v (const $ Field "esquire") (const $ Field . MyString)
+  down v = genericDown v (const $ Field . unMyString)
 
 type family RepToTree (a :: Type -> Type) :: [(Symbol, Type)] where
   RepToTree (f :*: g) = RepToTree f ++ RepToTree g
@@ -150,15 +156,15 @@ instance ( GTransform ts src dst
 instance ( GTransform ts src dst
          , HasField' name dst t
          ) => GTransform ('Addition name t ': ts) src dst where
-  type Function ('Addition name t ': ts) src dst  = (src -> t) -> Function ts src dst
-  gTransform dst src mk_t = gTransform @ts (dst & field' @name .~ mk_t src) src
+  type Function ('Addition name t ': ts) src dst  = (src -> Field name t) -> Function ts src dst
+  gTransform dst src mk_t = gTransform @ts (dst & field' @name .~ unField (mk_t src)) src
 
 instance ( GTransform ts src dst
          , HasField' name src ti
          , HasField' name dst to
          ) => GTransform ('Change name ti to ': ts) src dst where
-  type Function ('Change name ti to ': ts) src dst  = (src -> ti -> to) -> Function ts src dst
-  gTransform dst src mk_to = gTransform @ts (dst & field' @name .~ mk_to src (src ^. field' @name)) src
+  type Function ('Change name ti to ': ts) src dst  = (src -> ti -> Field name to) -> Function ts src dst
+  gTransform dst src mk_to = gTransform @ts (dst & field' @name .~ unField (mk_to src (src ^. field' @name))) src
 
 genericUp
     :: forall n src diff
