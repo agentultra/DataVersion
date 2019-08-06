@@ -19,8 +19,6 @@ import Data.Proxy
 import GHC.Exts
 
 -- nice to haves:
---   better names for everything
---   type inference for do the jonk
 --   DOCUMENTATION
 --   friendly error messages
 --
@@ -134,53 +132,53 @@ instance GUndefinedFields (K1 _1 t) where
 undefinedFields :: (Generic t, GUndefinedFields (Rep t)) => t
 undefinedFields = to gUndefinedFields
 
-class JonkySmalls (ts :: [DiffResult]) (src :: Type) (dst :: Type)  where
+class GTransform (ts :: [DiffResult]) (src :: Type) (dst :: Type)  where
   type Function ts src dst :: Type
-  jonky :: dst -> src -> Function ts src dst
+  gTransform :: dst -> src -> Function ts src dst
 
-instance (Generic dst, GUndefinedFields (Rep dst)) => JonkySmalls '[] src dst where
+instance (Generic dst, GUndefinedFields (Rep dst)) => GTransform '[] src dst where
   type Function '[] src dst = dst
-  jonky dst _ = dst
+  gTransform dst _ = dst
 
-instance ( JonkySmalls ts src dst
+instance ( GTransform ts src dst
          , HasField' name src t
          , HasField' name dst t
-         ) => JonkySmalls ('NoChange name t ': ts) src dst where
+         ) => GTransform ('NoChange name t ': ts) src dst where
   type Function ('NoChange name t ': ts) src dst  = Function ts src dst
-  jonky dst src = jonky @ts (copyField @name src dst) src
+  gTransform dst src = gTransform @ts (copyField @name src dst) src
 
-instance ( JonkySmalls ts src dst
+instance ( GTransform ts src dst
          , HasField' name dst t
-         ) => JonkySmalls ('Addition name t ': ts) src dst where
+         ) => GTransform ('Addition name t ': ts) src dst where
   type Function ('Addition name t ': ts) src dst  = (src -> t) -> Function ts src dst
-  jonky dst src mk_t = jonky @ts (dst & field' @name .~ mk_t src) src
+  gTransform dst src mk_t = gTransform @ts (dst & field' @name .~ mk_t src) src
 
-instance ( JonkySmalls ts src dst
+instance ( GTransform ts src dst
          , HasField' name src ti
          , HasField' name dst to
-         ) => JonkySmalls ('Change name ti to ': ts) src dst where
+         ) => GTransform ('Change name ti to ': ts) src dst where
   type Function ('Change name ti to ': ts) src dst  = (src -> ti -> to) -> Function ts src dst
-  jonky dst src mk_to = jonky @ts (dst & field' @name .~ mk_to src (src ^. field' @name)) src
+  gTransform dst src mk_to = gTransform @ts (dst & field' @name .~ mk_to src (src ^. field' @name)) src
 
 genericUp
     :: forall n src diff
      . ( diff ~ FieldDiff (Sort (RepToTree (Rep (src n)))) (Sort (RepToTree (Rep (src (n + 1)))))
-       , JonkySmalls diff (src n) (src (n + 1))
+       , GTransform diff (src n) (src (n + 1))
        , Generic (src (n + 1))
        , GUndefinedFields (Rep (src (n + 1)))
        )
     => src n -> Function diff (src n) (src (n + 1))
-genericUp = jonky @diff @(src n) @(src (n + 1)) undefinedFields
+genericUp = gTransform @diff @_ @(src (n + 1)) undefinedFields
 
 genericDown
     :: forall n src diff
      . ( diff ~ FieldDiff (Sort (RepToTree (Rep (src (n + 1))))) (Sort (RepToTree (Rep (src n))))
-       , JonkySmalls diff (src (n + 1)) (src n)
+       , GTransform diff (src (n + 1)) (src n)
        , Generic (src n)
        , GUndefinedFields (Rep (src n))
        )
     => src (n + 1) -> Function diff (src (n + 1)) (src n)
-genericDown = jonky @diff @(src (n + 1)) @(src n) undefinedFields
+genericDown = gTransform @diff @_ @(src n) undefinedFields
 
 
 
