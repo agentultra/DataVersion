@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE DuplicateRecordFields      #-}
+{-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeApplications           #-}
@@ -60,8 +61,8 @@ class Transform (f :: Nat -> Type) (n :: Nat) where
   down :: f (n + 1) -> f n
 
 instance Transform Foo 0 where
-  up v = doTheJonk2 v (const "esquire") (const MyString)
-  down v = doTheJonk3 v (const unMyString)
+  up   v = genericUp   v (const "esquire") (const MyString)
+  down v = genericDown v (const unMyString)
 
 type family RepToTree (a :: Type -> Type) :: [(Symbol, Type)] where
   RepToTree (f :*: g) = RepToTree f ++ RepToTree g
@@ -161,18 +162,7 @@ instance ( JonkySmalls ts src dst
   type Function ('Change name ti to ': ts) src dst  = (src -> ti -> to) -> Function ts src dst
   jonky dst src mk_to = jonky @ts (dst & field' @name .~ mk_to src (src ^. field' @name)) src
 
-
-doTheJonk
-    :: forall src dst diff
-     . ( diff ~ FieldDiff (Sort (RepToTree (Rep src))) (Sort (RepToTree (Rep dst)))
-       , JonkySmalls diff src dst
-       , Generic dst
-       , GUndefinedFields (Rep dst)
-       )
-    => src -> Function diff src dst
-doTheJonk = jonky @diff @src @dst undefinedFields
-
-doTheJonk2
+genericUp
     :: forall n src diff
      . ( diff ~ FieldDiff (Sort (RepToTree (Rep (src n)))) (Sort (RepToTree (Rep (src (n + 1)))))
        , JonkySmalls diff (src n) (src (n + 1))
@@ -180,9 +170,9 @@ doTheJonk2
        , GUndefinedFields (Rep (src (n + 1)))
        )
     => src n -> Function diff (src n) (src (n + 1))
-doTheJonk2 = jonky @diff @(src n) @(src (n + 1)) undefinedFields
+genericUp = jonky @diff @(src n) @(src (n + 1)) undefinedFields
 
-doTheJonk3
+genericDown
     :: forall n src diff
      . ( diff ~ FieldDiff (Sort (RepToTree (Rep (src (n + 1))))) (Sort (RepToTree (Rep (src n))))
        , JonkySmalls diff (src (n + 1)) (src n)
@@ -190,7 +180,9 @@ doTheJonk3
        , GUndefinedFields (Rep (src n))
        )
     => src (n + 1) -> Function diff (src (n + 1)) (src n)
-doTheJonk3 = jonky @diff @(src (n + 1)) @(src n) undefinedFields
+genericDown = jonky @diff @(src (n + 1)) @(src n) undefinedFields
+
+
 
 
 
