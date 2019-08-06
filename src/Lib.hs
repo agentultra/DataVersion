@@ -32,6 +32,9 @@ data Foo1
   }
   deriving (Generic, Show, Eq)
 
+v1 = FooV1 2 "james" "sir"
+v0 = FooV0 undefined undefined
+
 class Transform (f :: Nat -> Type) (v :: Nat) where
   up   :: f v       -> f (v + 1)
   down :: f (v + 1) -> f v
@@ -84,6 +87,20 @@ copyField
     -> to
 copyField f t =
   t & field @name @to @to @t @t .~ f ^. field @name @from @from @t @t
+
+
+class CopyAllFields (ts :: [(Symbol, Type)]) (from :: Type) (to :: Type) where
+  copyAllFields :: from -> to -> to
+
+instance CopyAllFields '[] from to where
+  copyAllFields _ = id
+
+instance ( CopyAllFields ts from to
+         , HasField name to   to   t t
+         , HasField name from from t t
+         ) => CopyAllFields ('(name, t) ': ts) from to where
+  copyAllFields f t = copyField @name @t f $ copyAllFields @ts f t
+
 
 -- copyField :: from -> to ->  to
 
