@@ -63,21 +63,21 @@ type family Insert' (b :: Ordering) (x :: (Symbol, k)) (y :: (Symbol, k)) (ys ::
   Insert' _ x y ys = y ': Insert x ys
 
 type family FieldDiff (a :: [(Symbol, Type)])
-                      (b :: [(Symbol, Type)]) :: [(Symbol, Either Type (Type, Type))] where
+                      (b :: [(Symbol, Type)]) :: [Either (Symbol, Type) (Symbol, Either Type (Type, Type))] where
   FieldDiff xs '[] = '[]
-  FieldDiff '[] ('(y, v) ': ys) = '(y, 'Left v) ': FieldDiff '[] ys
+  FieldDiff '[] ('(y, v) ': ys) = 'Left '(y, v) ': FieldDiff '[] ys
 
-  FieldDiff ('(x, t) ': xs) ('(x, t) ': ys) = FieldDiff xs ys
-  FieldDiff ('(x, u) ': xs) ('(x, v) ': ys) = '(x, 'Right '(u, v)) ': FieldDiff xs ys
+  FieldDiff ('(x, t) ': xs) ('(x, t) ': ys) = 'Left '(x, t) ': FieldDiff xs ys
+  FieldDiff ('(x, u) ': xs) ('(x, v) ': ys) = 'Right '(x, 'Right '(u, v)) ': FieldDiff xs ys
   FieldDiff ('(x, u) ': xs) ('(y, v) ': ys) = FieldDiffImpl (CmpSymbol x y) '(x, u) '(y, v) xs ys
 
 type family FieldDiffImpl (b :: Ordering)
                           (x :: (Symbol, Type))
                           (y :: (Symbol, Type))
                           (xs :: [(Symbol, Type)])
-                          (ys :: [(Symbol, Type)]) :: [(Symbol, Either Type (Type, Type))] where
+                          (ys :: [(Symbol, Type)]) :: [Either (Symbol, Type) (Symbol, Either Type (Type, Type))] where
   FieldDiffImpl 'LT _ y xs ys = FieldDiff xs (y ': ys)
-  FieldDiffImpl 'GT x '(y, v) xs ys = '(y, 'Left v) ': FieldDiff (x ': xs) ys
+  FieldDiffImpl 'GT x '(y, v) xs ys = 'Right '(y, 'Left v) ': FieldDiff (x ': xs) ys
 
 copyField
     :: forall name t from to
@@ -119,7 +119,6 @@ instance GUndefinedFields (K1 _1 t) where
 undefinedFields :: (Generic t, GUndefinedFields (Rep t)) => t
 undefinedFields = to gUndefinedFields
 
-
 class JonkySmalls (from :: Type) (to :: Type) (ts :: [(Symbol, Either Type (Type, Type))]) where
   type Function from to ts :: Type
   jonky :: Function from to ts
@@ -137,10 +136,8 @@ instance JonkySmalls from to '[] where
 --   jonky = undefined
 
 
+
 test
-    :: Proxy (FieldDiff (Sort '[ '("id", Int) , '("name", String) ]) (Sort '[ '("id", Int) , '("name", String) , '("honorific", String)
-                               ]))
-   ->  Proxy '[ '("honorific", ('Left [Char] :: Either Type (Type, Type)))]
+    :: Proxy (FieldDiff (Sort '[ '("id", Int) , '("name", String) ]) (Sort '[ '("id", Int) , '("name", String) , '("honorific", String)]))
+   ->  Proxy '[ 'Right '("honorific", ('Left String :: Either Type (Type, Type))), 'Left '("id", Int), 'Left '("name", String) ]
 test = id
-
-
