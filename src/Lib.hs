@@ -1,13 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes        #-}
-{-# LANGUAGE DuplicateRecordFields      #-}
-{-# LANGUAGE FunctionalDependencies     #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE UndecidableInstances       #-}
-{-# OPTIONS_GHC -fprint-explicit-kinds  #-}
-
 module Lib where
 
 import Data.Generics.Product
@@ -17,39 +7,6 @@ import GHC.Generics
 import GHC.TypeLits
 import Data.Proxy
 import GHC.Exts
-
--- nice to haves:
---   DOCUMENTATION
---   tests
---   names of fields for jonking
---
---   automagic upgrading between non-sequential versions
---
---   friendly error messages
---   sum types
---   reorder the `Function` so its an "endo"
---   special cases for Maybe? lists?
---   COMPOSITION of ups and downs
-
-data family Foo (a :: Nat)
-
-newtype MyString = MyString { unMyString :: String }
-  deriving (IsString, Show, Eq)
-
-data instance Foo 0
-  = FooV0
-    { _fooId :: Int
-    , _fooName :: String
-    }
-  deriving (Generic, Show, Eq)
-
-data instance Foo 1
-  = FooV1
-  { _fooId        :: Int
-  , _fooName      :: MyString
-  , _fooHonorific :: String
-  }
-  deriving (Generic, Show, Eq)
 
 class Transform (f :: Nat -> Type) (n :: Nat) where
   up   :: f n       -> f (n + 1)
@@ -113,7 +70,6 @@ copyField
 copyField f t =
   t & field' @name .~ f ^. field' @name
 
-
 class GUndefinedFields (o :: * -> *) where
   gUndefinedFields :: o x
 
@@ -176,12 +132,3 @@ genericDown
        )
     => src (n + 1) -> Function diff (src (n + 1)) (src n)
 genericDown = gTransform @diff @_ @(src n) undefinedFields
-
-
-
-
-
-test
-    :: Proxy (FieldDiff (Sort '[ '("id", Int) , '("name", String) ]) (Sort '[ '("id", Int) , '("name", String) , '("honorific", String)]))
-   ->  Proxy '[ 'Addition "honorific" String, 'NoChange "id" Int, 'NoChange "name" String ]
-test = id

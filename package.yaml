@@ -38,6 +38,14 @@ default-extensions:
   - FlexibleContexts
   - FlexibleInstances
   - PolyKinds
+  - AllowAmbiguousTypes
+  - DuplicateRecordFields
+  - FunctionalDependencies
+  - GeneralizedNewtypeDeriving
+  - ScopedTypeVariables
+  - TypeApplications
+  - TypeOperators
+  - UndecidableInstances
 
 executables:
   DataVersion-exe:
