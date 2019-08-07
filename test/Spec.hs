@@ -18,5 +18,9 @@ data instance Foo 1
   }
   deriving (Generic, Show, Eq)
 
+instance Transform Foo 0 where
+  up   v = genericUp   v (const "esquire") (const MyString)
+  down v = genericDown v (const unMyString)
+
 main :: IO ()
 main = putStrLn "Test suite not yet implemented"

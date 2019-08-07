@@ -1,3 +1,47 @@
+{-|
+Module : Data.Migration
+Description : Type-safe migrations for data
+Copyright : (c) Sandy Maguire, 2019
+                James King, 2019
+License : MIT
+Maintainer : james@agentultra.com
+Stability : experimental
+
+To begin migrating your data start with a type family for your record
+and index it with a natural number
+
+@
+    data family Foo (version :: Nat)
+
+    newtype MyString = MyString { unMyString :: String }
+       deriving (IsString, Show, Eq)
+
+    data instance Foo 0
+      = FooV0
+        { _fooId :: Int
+        , _fooName :: String
+        }
+      deriving (Generic, Show, Eq)
+
+    data instance Foo 1
+      = FooV1
+      { _fooId        :: Int
+      , _fooName      :: MyString
+      , _fooHonorific :: String
+      }
+      deriving (Generic, Show, Eq)
+
+    instance Transform Foo 0 where
+      up   v = genericUp   v (const "esquire") (const MyString)
+      down v = genericDown v (const unMyString)
+@
+
+You provide an instance of the Transform class for your type in order
+to specify how to transform version /n/ to version /n + 1/ and back.
+
+Presently only simple record types are supported. More to come in the
+future.
+-}
 module Data.Migration where
 
 import Data.Generics.Product
@@ -8,13 +52,13 @@ import GHC.TypeLits
 import Data.Proxy
 import GHC.Exts
 
+import Data.Migration.Internal
+
+-- | Implement this class on your type family instance to migrate
+--   values of your type to the new version and back
 class Transform (f :: Nat -> Type) (n :: Nat) where
   up   :: f n       -> f (n + 1)
   down :: f (n + 1) -> f n
-
-instance Transform Foo 0 where
-  up   v = genericUp   v (const "esquire") (const MyString)
-  down v = genericDown v (const unMyString)
 
 type family RepToTree (a :: Type -> Type) :: [(Symbol, Type)] where
   RepToTree (f :*: g) = RepToTree f ++ RepToTree g
@@ -24,11 +68,6 @@ type family RepToTree (a :: Type -> Type) :: [(Symbol, Type)] where
 type family (++) (xs :: [k]) (ys :: [k]) :: [k] where
   (++) '[] ys = ys
   (++) (x ': xs) ys = x ': (xs ++ ys)
-
-data DiffResult
-  = NoChange Symbol Type
-  | Addition Symbol Type
-  | Change Symbol Type Type
 
 type family Sort (xs :: [(Symbol, k)]) where
   Sort '[] = '[]
@@ -41,6 +80,11 @@ type family Insert (x :: (Symbol, k)) (xs :: [(Symbol, k)]) where
 type family Insert' (b :: Ordering) (x :: (Symbol, k)) (y :: (Symbol, k)) (ys :: [(Symbol, k)]) where
   Insert' 'LT x y ys = x ': (y ': ys)
   Insert' _ x y ys = y ': Insert x ys
+
+data DiffResult
+  = NoChange Symbol Type
+  | Addition Symbol Type
+  | Change Symbol Type Type
 
 type family FieldDiff (a :: [(Symbol, Type)])
                       (b :: [(Symbol, Type)]) :: [DiffResult] where
@@ -69,21 +113,6 @@ copyField
     -> to
 copyField f t =
   t & field' @name .~ f ^. field' @name
-
-class GUndefinedFields (o :: * -> *) where
-  gUndefinedFields :: o x
-
-instance GUndefinedFields o => GUndefinedFields (M1 _3 _4 o) where
-  gUndefinedFields = M1 $ gUndefinedFields
-
-instance (GUndefinedFields o1, GUndefinedFields o2) => GUndefinedFields (o1 :*: o2) where
-  gUndefinedFields = gUndefinedFields :*: gUndefinedFields
-
-instance GUndefinedFields (K1 _1 t) where
-  gUndefinedFields = K1 undefined
-
-undefinedFields :: (Generic t, GUndefinedFields (Rep t)) => t
-undefinedFields = to gUndefinedFields
 
 class GTransform (ts :: [DiffResult]) (src :: Type) (dst :: Type)  where
   type Function ts src dst :: Type
