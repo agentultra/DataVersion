@@ -44,13 +44,9 @@ future.
 -}
 module Data.Migration where
 
-import Data.Generics.Product
-import Lens.Micro hiding (to)
 import Data.Kind
 import GHC.Generics
 import GHC.TypeLits
-import Data.Proxy
-import GHC.Exts
 
 import Data.Migration.Internal
 

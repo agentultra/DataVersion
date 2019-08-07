@@ -3,7 +3,6 @@ module Data.Migration.Internal where
 import Data.Generics.Product
 import Data.Kind
 import Lens.Micro hiding (to)
-import GHC.Exts
 import GHC.Generics
 import GHC.TypeLits
 
