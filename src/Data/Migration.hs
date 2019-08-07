@@ -1,4 +1,4 @@
-module Lib where
+module Data.Migration where
 
 import Data.Generics.Product
 import Lens.Micro hiding (to)
