@@ -1,10 +1,10 @@
 name:                DataVersion
 version:             0.1.0.0
-github:              "githubuser/DataVersion"
-license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2019 Author name here"
+github:              "agentultra/DataMigration"
+license:             MIT
+author:              "Sandy Maguire, James King"
+maintainer:          "james@agentultra.com"
+copyright:           "2019 Sandy Maguire, James King"
 
 extra-source-files:
 - README.md
@@ -17,7 +17,7 @@ category: Data
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/DataVersion#readme>
+description:         Please see the README on GitHub at <https://github.com/agentultra/DataMigration#readme>
 
 dependencies:
 - base >= 4.7 && < 5
@@ -25,8 +25,8 @@ dependencies:
 library:
   source-dirs: src
   dependencies:
-    - microlens
-    - generic-lens
+    - microlens >=0.4.10 && <2
+    - generic-lens >=1.1.0.0 && <2
 
 default-extensions:
   - DataKinds
@@ -47,7 +47,7 @@ default-extensions:
   - UndecidableInstances
 
 tests:
-  DataVersion-test:
+  DataMigration-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -55,6 +55,6 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - DataVersion
+    - DataMigration
     - hspec
     - QuickCheck
