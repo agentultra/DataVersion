@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLabels #-}
 {-|
 Module : Data.Migration
 Description : Type-safe migrations for data
@@ -47,7 +48,9 @@ module Data.Migration where
 import Data.Kind
 import GHC.Generics
 import GHC.TypeLits
+import SuperRecord hiding (Sort)
 
+--import Data.Migration.Dsl
 import Data.Migration.Internal
 
 -- | Implement this class on your type family instance to migrate
@@ -78,3 +81,30 @@ genericDown
        )
     => src (n + 1) -> Function diff (src (n + 1)) (src n)
 genericDown = gTransform @diff @_ @(src n) undefinedFields
+
+data family User (version :: Nat)
+
+data instance User 0
+  = UserV0
+  { userId    :: Int
+  , userFirst :: String
+  }
+  deriving (Eq, Generic, Show)
+
+data instance User 1
+  = UserV1
+  { userId    :: Int
+  , userFirst :: String
+  , userLast  :: String
+  }
+  deriving (Eq, Generic, Show)
+
+genericBigUp :: User 0 -> Rec r -> User 1
+genericBigUp = undefined
+
+genericBigDown :: User 1 -> User 0
+genericBigDown = undefined
+
+instance Transform User 0 where
+  up v = genericBigUp v $ #userLast := const "Default" & rnil
+  down v = genericBigDown v
