@@ -50,7 +50,7 @@ import GHC.Generics
 import GHC.TypeLits
 import SuperRecord hiding (Sort)
 
---import Data.Migration.Dsl
+import Data.Migration.Dsl
 import Data.Migration.Internal
 
 -- | Implement this class on your type family instance to migrate
@@ -99,7 +99,11 @@ data instance User 1
   }
   deriving (Eq, Generic, Show)
 
-genericBigUp :: User 0 -> Rec r -> User 1
+genericBigUp :: forall n src diff
+              . (diff ~ FieldDiff (Sort (RepToTree (Rep (src n)))) (Sort (RepToTree (Rep (src (n + 1)))))
+                , Generic (src n)
+                )
+              => src n -> Record (ToRecord diff (src n)) -> src (n + 1)
 genericBigUp = undefined
 
 genericBigDown :: User 1 -> User 0
