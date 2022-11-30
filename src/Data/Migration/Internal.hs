@@ -88,7 +88,7 @@ instance ( GTransform ts src dst
   type Function ('Change name ti to ': ts) src dst  = (src -> ti -> to) -> Function ts src dst
   gTransform dst src mk_to = gTransform @ts (dst & field' @name .~ mk_to src (src ^. field' @name)) src
 
-class GUndefinedFields (o :: * -> *) where
+class GUndefinedFields (o :: Type -> Type) where
   gUndefinedFields :: o x
 
 instance GUndefinedFields o => GUndefinedFields (M1 _3 _4 o) where
