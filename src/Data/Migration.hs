@@ -78,3 +78,11 @@ genericDown
        )
     => src (n + 1) -> Function diff (src (n + 1)) (src n)
 genericDown = gTransform @diff @_ @(src n) undefinedFields
+
+-- data family Mob (version :: Nat)
+
+-- data instance Mob 0 = A0 Int | B0 Bool | C0 deriving Generic
+-- data instance Mob 1 = A1 Int | B1 Bool | C1 String deriving Generic
+
+-- instance Transform Mob 0 where
+--   up v = genericUp v _
