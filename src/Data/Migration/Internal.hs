@@ -1,7 +1,7 @@
 module Data.Migration.Internal where
 
 import Data.Generics.Product
---import Data.Generics.Sum
+import Data.Generics.Sum
 import Data.Kind
 import Lens.Micro hiding (to)
 import GHC.Generics
@@ -67,6 +67,7 @@ type family FieldDiff (a :: [SchemaType])
   FieldDiff (('RecordField x u) ': xs) (('RecordField x v) ': ys) = 'Change x u v ': FieldDiff xs ys
   FieldDiff (('RecordField x u) ': xs) (('RecordField y v) ': ys) = FieldDiffImpl (CmpSymbol x y) ('RecordField x u) ('RecordField y v) xs ys
 
+  -- This doesn't work when the constructor names are all unique
   FieldDiff (('Ctor x ts) ': xs) (('Ctor x ts) ': ys) = 'CtorNoChange x ts ': FieldDiff xs ys
   FieldDiff (('Ctor x us) ': xs) (('Ctor x vs) ': ys) = 'CtorChanged x us vs ': FieldDiff xs ys
   FieldDiff (('Ctor x us) ': xs) (('Ctor y vs) ': ys) = FieldDiffImpl (CmpSymbol x y) ('Ctor x us) ('Ctor y vs) xs ys
@@ -118,12 +119,13 @@ instance ( GTransform ts src dst
   type Function ('Change name ti to ': ts) src dst  = (src -> ti -> to) -> Function ts src dst
   gTransform dst src mk_to = gTransform @ts (dst & field' @name .~ mk_to src (src ^. field' @name)) src
 
+-- This is (part) of the problem:
 -- instance ( GTransform ts src dst
 --          , AsConstructor' name src s
 --          , AsConstructor' name dst s
 --          ) => GTransform ('CtorNoChange name t ': ts) src dst where
 --   type Function ('CtorNoChange name t ': ts) src dst = Function ts src dst
---   gTransform dst src = gTransform @ts _ src
+--   gTransform dst src = gTransform @ts (_Ctor @name #. src) src
 
 class GUndefinedFields (o :: Type -> Type) where
   gUndefinedFields :: o x
